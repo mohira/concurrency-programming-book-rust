@@ -1,33 +1,26 @@
-struct Vec2 {
-    x: f64,
-    y: f64,
+ use std::ops::Add;
+
+struct Vec2{
+    x:f64,
+    y:f64
 }
 
-struct MyU32 {
-    val: u32,
-}
-// type MyInt u32
+impl Add for Vec2 {
+    type Output = Vec2;
 
-impl Vec2 {
-    fn new(x: f64, y: f64) -> Self {
-        Vec2 { x, y }
-    }
-
-    fn norm(&self) -> f64 {
-        (self.x * self.x + self.y * self.y).sqrt()
-    }
-
-    fn set(&mut self, x: f64, y: f64) {
-        self.x = x;
-        self.y = y;
+    fn add(self, rhs: Vec2) -> Vec2 {
+        Vec2{
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
     }
 }
 
 fn main() {
-    let mut v = Vec2::new(10.0, 5.0);
+    let v1 = Vec2{x: 10.0, y: 5.0};
+    let v2 = Vec2{x: 3.1, y:8.7};
+    let v = v1 + v2;
 
-    println!("v.norm = {}", v.norm());
+    println!("v.x = {}, v.y = {}", v.x, v.y);
 
-    v.set(3.8, 9.1);
-    println!("v.norm = {}", v.norm());
 }
