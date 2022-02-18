@@ -1,25 +1,40 @@
-use std::ops::Add;
+use std::sync::{Arc, Mutex}; // ①
+use std::thread;
 
-struct Vec2 {
-    x: f64,
-    y: f64,
-}
-
-impl Add for Vec2 {
-    type Output = Vec2;
-
-    fn add(self, rhs: Vec2) -> Vec2 {
-        Vec2 {
-            x: self.x + rhs.x,
-            y: self.y + rhs.y,
-        }
+fn some_func(lock: Arc<Mutex<u64>>) {
+    //②
+    loop {
+        // ロックしないとMutex型の中の値は参照不可
+        let mut val = lock.lock().unwrap(); //❸ lock 関数を呼び出してロックして保護対象データの参照を取得。
+        *val += 1;
+        println!("{}", *val);
     }
 }
 
 fn main() {
-    let v1 = Vec2 { x: 10.0, y: 5.0 };
-    let v2 = Vec2 { x: 3.1, y: 8.7 };
-    let v = v1 + v2;
+    // Arcはスレッドセーフな参照カウンタ型のスマートポインタ
+    let lock0 = Arc::new(Mutex::new(0)); // ④
+                                         //    let lock0 = Arc::new((0)); // ④
 
-    println!("v.x = {}, v.y = {}", v.x, v.y);
+    // 参照カウンタがインクリメントされるので
+    // 中身はクローンされない
+    let lock1 = lock0.clone();
+
+    // スレッド生成
+    // クロージャじゃない変数へmove
+    let th0 = thread::spawn(move || {
+        // ⑥
+        some_func(lock0);
+    });
+
+    // スレッド生成
+    // クロージャじゃない変数へmove
+    let th1 = thread::spawn(move || {
+        // ⑥
+        some_func(lock1);
+    });
+
+    // 待ち合わせ
+    th0.join().unwrap();
+    th1.join().unwrap();
 }
