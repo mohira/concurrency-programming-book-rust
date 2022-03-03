@@ -1,52 +1,54 @@
-use std::sync::{Arc, Mutex, Condvar}; // ①
+use std::sync::{Arc, Mutex, Condvar};
 use std::thread;
 
-// Condvar型の変数が条件変数であり
-// Mutex と Condvar を含むタプルがArcに包んで渡される
-fn child(id: u64, p: Arc<(Mutex<bool>, Condvar)>) { // ②
-    let &(ref lock, ref cvar) = &*p;
+fn child(id: u64, p: Arc<(Mutex<u64>, Condvar)>) {
+  let &(ref lock, ref cvar) = &*p;
 
-    // まず、ミューテックスロックを行う
-    let mut started = lock.lock().unwrap(); // ③
+  let mut started = lock.lock().unwrap();
 
-    while !*started { // Mutex中の共有変数が false の間ループ
-        // wait で 待機
-        started = cvar.wait(started).unwrap(); // ④
-    }
+  while *started < 5 {
+    println!("child {} standby, started = {}", id, started);
+    started = cvar.wait(started).unwrap();
+    println!("child {} notififed, started = {}", id, started);
+  }
 
-    // 以下のように、 wait_while を使うことも可能
-    // cvar.wait_while(started, |started| ~*started).unwrap();
-
-    println!("child {}", id);
+  println!("child {}", id);
 }
 
-fn parent(p: Arc<(Mutex<bool>, Condvar)>) {
-    let &(ref lock, 
-        ref cvar) = &*p;
+fn parent(p: Arc<(Mutex<u64>, Condvar)>) {
+  let &(ref lock, ref cvar) = &*p;
 
-    // まず、ミューテックスロックをおこなう ⑥
-    let mut started = lock.lock().unwrap();
-    *started = true; // 共有変数を更新
+  let mut started = lock.lock().unwrap();
+  *started += 1;
+  cvar.notify_all();
 
-
-    // pthred_cond_broadcast(cvar) 
-    cvar.notify_all(); // 通知
-
-    println!("parent");
+  println!("parent");
 }
 
 fn main() {
-    // ミューテックスと条件変数を作成
-    let pair0 = Arc::new((Mutex::new(false), Condvar::new()));
-    let pair1 = pair0.clone();
-    let pair2 = pair0.clone();
+  let pair0 = Arc::new((Mutex::new(0), Condvar::new()));
+  let pair1 = pair0.clone();
+  let pair2 = pair0.clone();
+  let pair3 = pair0.clone();
+  let pair4 = pair0.clone();
+  let pair5 = pair0.clone();
+  let pair6 = pair0.clone();
 
-    let c0 = thread::spawn(move || {child(0, pair0)});
-    let c1 = thread::spawn(move || {child(1, pair1)});
+  let c0 = thread::spawn(move || { child(0, pair0) });
+  let c1 = thread::spawn(move || { child(1, pair1) });
 
-    let p  = thread::spawn(move || {parent(pair2)});
+  let p = thread::spawn(move || { parent(pair2) });
+  let p1 = thread::spawn(move || { parent(pair3) });
+  let p2 = thread::spawn(move || { parent(pair4) });
+  let p3 = thread::spawn(move || { parent(pair5) });
+  let p4 = thread::spawn(move || { parent(pair6) });
 
-    c0.join().unwrap();
-    c1.join().unwrap();
-    p.join().unwrap();
+  c0.join().unwrap();
+  c1.join().unwrap();
+
+  p.join().unwrap();
+  p1.join().unwrap();
+  p2.join().unwrap();
+  p3.join().unwrap();
+  p4.join().unwrap();
 }
