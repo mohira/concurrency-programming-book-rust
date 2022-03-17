@@ -1,27 +1,33 @@
-use std::sync::{Arc, Barrier};
+use std::sync::{Arc, Barrier, RwLock};
 use std::thread;
 
+fn increment(sum: &Arc<RwLock<u32>>) {
+  let mut s = sum.write().unwrap();
+  println!("increment {}", s);
+  *s += 1;
+}
+
 fn main() {
-    // スレッドハンドラを保存するベクタ
-    let mut v = Vec::new(); // 2
+  let mut v = Vec::new();
 
-    // 10スレッド分のバリア同期をArcで包む
-    let barrier = Arc::new(Barrier::new(999));
+  let barrier = Arc::new(Barrier::new(10));
 
-    // 10スレッド起動
-    for i in 0..10 {
-        let b = barrier.clone();
-        let th = thread::spawn(move || {
-            println!("はい、バリアーーー {}", i );
-            b.wait(); // バリア同期
-            println!("finished barrier {}", i );
-        });
+  let sum = Arc::new(RwLock::new(0));
+  for _ in 0..10 {
+    let b = barrier.clone();
+    let s = sum.clone();
 
-        v.push(th);
-    }
+    let th = thread::spawn(move || {
+      increment(&s);
 
-    for th in v {
-        th.join().unwrap();
-    }
+      //b.wait(); // ←ここをコメントアウトすると :zany_face:
 
+      println!("sum is {}", s.read().unwrap());
+    });
+
+    v.push(th);
+  }
+  for th in v {
+    th.join().unwrap();
+  }
 }
