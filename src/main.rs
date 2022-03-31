@@ -1,14 +1,7 @@
 use std::sync::{Condvar, Mutex};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
-
-const NUM_LOOP: usize = 100000;
-const NUM_THREADS: usize = 8; // スレッドは8個！
-const SEM_NUM: isize = 4; // 4つまではいける
-// したがって、 wait と post の間は 必ず 4 スレッド以内に制限されるはずである。
-
-static mut CNT: AtomicUsize = AtomicUsize::new(0);
-
+use std::collections::LinkedList;
+use std::sync::{Arc, Condvar, Mutex};
 
 // セマフォ用の型 1
 pub struct Semaphore{
@@ -52,42 +45,40 @@ impl Semaphore {
 }
 
 
+// 送信側のための型 1
+#[derive(Clone)]
+pub struct Sender<T> {
+  sem: Arc<Semaphore>, // 有限性を実現するセマフォ
+  buf: Arc<Mutex<LinkedList<T>>, // キュー
+  cond: Arc<Condvar>, // 読み込み側の条件変数
+}
+
+
+impl<T: Send> Sender<T> { // 2
+    // 送信関数
+    pub fn send(&self, data: T) {
+      self.sem.wait(); // キューの最大値に到達したら待機 3
+
+      let mut buf = self.buf.lock().unwrap();
+
+      buf.push_back(data); // エンキュー
+
+      self.cond.notify_one(); // 読み込み
+
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
 fn main() {
-  let  mut v = Vec::new();
-
-  // SEM_NUM だけ同時実行可能なセマフォ
-  let sem = Arc::new(Semaphore::new(SEM_NUM));
-
-  for i in 0..NUM_THREADS {
-    let s = sem.clone();
-
-    let t = std::thread::spawn(move || {
-      for l in 0..NUM_LOOP {
-        s.wait();
-
-        // アトミックにインクリメント
-        unsafe {CNT.fetch_add(1, Ordering::SeqCst)};
-
-        let n = unsafe { CNT.load(Ordering::SeqCst) };
-
-        println!("セマフォ: スレッド = {}, ループ = {} CNT = {}", i, l, n);
-
-        assert!((n as isize) <= SEM_NUM);
-
-        // アトミックにデクリメント
-        unsafe {CNT.fetch_sub(1, Ordering::SeqCst)};
-
-        s.post();
-      }
-    });
-
-    v.push(t);
-  }
-
-  for t in v {
-    t.join().unwrap();
-  }
-
 
 }
 
