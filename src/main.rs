@@ -69,6 +69,31 @@ impl<T: Send> Sender<T> { // 2
 }
 
 
+pub struct Receiver<T> { // ①
+  sem: Arc<Semaphore>, // 有限性を実現するセマフォ
+  buf: Arc<Mutex<LinkedList<T>>>, // キュー
+  cond: Arc<Condvar>, // 読み込み側の条件変数
+}
+
+impl<T> Receiver<T> {
+  pub fn recv(&self) -> T {
+    let mut buf = self.buf.lock().unwrap();
+
+    loop {
+      // キューから取り出し ②
+      if let Some(data) = buf.pop_front() {
+        self.sem.post(); // ③
+        return data;
+      }
+
+      // 空の場合待機 ④
+      buf = self.cond.wait(buf).unwrap();
+    }
+  }
+    
+}
+
+
 
 
 
