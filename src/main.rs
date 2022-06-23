@@ -1,19 +1,23 @@
-use std::sync::{Arc, RwLock};
-use std::thread;
+use signal_hook::{iterator::Signals, consts::signal::SIGUSR1}; // <1>
+use std::{error::Error, process, thread, time::Duration};
 
+// https://crates.io/crates/signal-hook
 
-fn main() {
-  let val = Arc::new(RwLock::new(true));
+fn main() -> Result<(), Box<dyn Error>> {
+    // プロセスIDを表示
+    println!("pid: {}", process::id());
 
-  let t = thread::spawn(move || {
-    // let flag = val.read().unwrap();
-    let flag = *val.read().unwrap();
-    // if *flag {
-    if flag {
-        *val.write().unwrap() = false;
-      println!("flag is true")
-    }
-  });
+    let signals = Signals::new(&[SIGUSR1])?; // <2>
+    thread::spawn(move || {
+        // シグナルを受信
+        for sig in signals.forever() { // <3>
+            println!("received signal: {:?}", sig);
+        }
+    });
+    // かけました
+    // みえるー？かいてみてー
 
-  t.join().unwrap();
+    // 10秒スリープ
+    thread::sleep(Duration::from_secs(10));
+    Ok(())
 }
